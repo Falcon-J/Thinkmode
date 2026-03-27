@@ -1,64 +1,68 @@
-// Flow implementation
+type Ctx = Record<string, any>;
+const MAX_STEPS = 20;
+function withTimeout<T>(promise: Promise<T>, ms = 3000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout')), ms)
+    ),
+  ]);
+}
 
-import type { Step, Handlers } from "./types.js"
+export class ThinkMode {
+  private steps: { name: string; fn: (ctx: Ctx) => Promise<Ctx> }[] = [];
 
-export function createFlow(handlers: Handlers = {}) {
-  const steps: Step[] = []
-  const start = Date.now()
-
-  function emit(step: Step) {
-    const enriched = { ...step, ts: Date.now() - start }
-    steps.push(enriched)
-    handlers.onStep?.(enriched)
+  step(name: string, fn: (ctx: Ctx) => Promise<Ctx>) {
+    if (!name || typeof fn !== 'function') {
+      throw new Error('Invalid step registration');
+    }
+    this.steps.push({ name, fn });
   }
 
-  return {
-    input(text: string) {
-      emit({ type: "input", content: text })
-    },
+  // temporary backward compatibility
+  on(name: string, fn: (ctx: Ctx) => Promise<Ctx>) {
+    return this.step(name, fn);
+  }
 
-    intent(text: string) {
-      emit({ type: "intent", content: text })
-    },
+  async run(input: string) {
+    if (!input) throw new Error('Input required');
 
-    tool(name: string, input: any, output?: any) {
-      emit({
-        type: "tool",
-        content: name,
-        meta: { input, output }
-      })
-    },
+    let ctx: Ctx = { input };
+    let i = 0;
+    let stepsRun = 0;
 
-    scratchpad(text: string) {
-      emit({ type: "scratchpad", content: text })
-    },
+    while (i < this.steps.length) {
+      if (stepsRun++ > MAX_STEPS) {
+        throw new Error('Max steps exceeded (possible infinite loop)');
+      }
+      const { name, fn } = this.steps[i];
 
-    response(text: string) {
-      emit({ type: "response", content: text })
-      handlers.onComplete?.()
-    },
-
-    error(err: Error) {
-      emit({ type: "error", content: err.message })
-      handlers.onError?.(err)
-    },
-
-    export() {
-      return { steps }
-    },
-
-    replay(speed = 1) {
-      let i = 0
-
-      function next() {
-        if (i >= steps.length) return
-        const step = steps[i]
-        if (step) handlers.onStep?.(step)
-        i++
-        setTimeout(next, 300 / speed)
+      try {
+        ctx = await withTimeout(fn(ctx));
+      } catch (err: any) {
+        return {
+          ...ctx,
+          error: err.message,
+          failed_step: name,
+        };
       }
 
-      next()
+      if (!ctx || typeof ctx !== 'object') {
+        throw new Error(`Invalid ctx at step "${name}"`);
+      }
+
+      if (ctx.next) {
+        const nextIndex = this.steps.findIndex(s => s.name === ctx.next);
+        if (nextIndex === -1) {
+          throw new Error(`Unknown step "${ctx.next}"`);
+        }
+        i = nextIndex;
+        continue;
+      }
+
+      i++;
     }
+
+    return ctx;
   }
 }
