@@ -1,6 +1,6 @@
 {
   "name": "thinkmode",
-  "version": "0.1.1",
+  "version": "2.0.0",
   "type": "module",
   "description": "Structured debugging for LLM reasoning flows",
   "main": "dist/index.js",
@@ -18,5 +18,14 @@
     "ai",
     "debugging"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "openai": "^6.33.0"
+  }
 }
