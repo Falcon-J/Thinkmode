@@ -1,0 +1,22 @@
+{
+  "name": "thinkmode",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Structured debugging for LLM reasoning flows",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "llm",
+    "ai",
+    "debugging"
+  ],
+  "license": "MIT"
+}
